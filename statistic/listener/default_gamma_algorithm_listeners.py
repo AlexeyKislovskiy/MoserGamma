@@ -1,8 +1,9 @@
 import math
 
 from algorithm.gamma_algorithm import GammaAlgorithm
-from statistic.event.gamma_algorithm_events import GammaAlgorithmAfterDetailPlacedEvent, GammaAlgorithmBeforeLRPCutEvent
-from statistic.listener.gamma_algorithm_listeners import AfterDetailPlacedListener, BeforeLRPCutListener
+from statistic.event.gamma_algorithm_events import GammaAlgorithmAfterDetailPlacedEvent, \
+    GammaAlgorithmBeforeLRPCutEvent, GammaAlgorithmEndEvent
+from statistic.listener.gamma_algorithm_listeners import AfterDetailPlacedListener, BeforeLRPCutListener, AlgorithmEndListener
 from statistic.output import OutputHandler
 
 
@@ -38,6 +39,33 @@ class PrintEachN(AfterDetailPlacedListener):
         if event.last_placed_index % self.n == 0:
             message = f'Placed detail with index {event.last_placed_index}'
             self.output_handler.write(message)
+
+
+class PrintInfoAtEnd(AlgorithmEndListener):
+    """
+    A listener that prints a message at the end of the gamma algorithm.
+
+    Attributes:
+        output_handler (OutputHandler): The handler used to output messages.
+    """
+
+    def __init__(self, output_handler: OutputHandler):
+        """
+        Initialize an PrintInfoAtEnd object.
+
+        :param output_handler: The handler used to output messages.
+        """
+        self.output_handler = output_handler
+
+    def handle(self, event: GammaAlgorithmEndEvent) -> None:
+        """
+        Handle the event that occurs at the end of the gamma algorithm.
+        Output information about end of the algorithm.
+
+        :param event: The event that occurs at the end of the gamma algorithm.
+        """
+        message = f'Gamma algorithm with n0 = {event.n0} and gamma = {event.gamma} ended'
+        self.output_handler.write(message)
 
 
 class NormalBoxMaxRatioTracker(AfterDetailPlacedListener):
@@ -92,6 +120,44 @@ class NormalBoxMaxRatioTracker(AfterDetailPlacedListener):
                       f' {self.current_start_value} - {self.current_finish_value}'
             self.output_handler.write(message)
             self.current_start_index = None
+
+
+class NormalBoxFinalMaxRatioTracker(AfterDetailPlacedListener):
+    """
+    A listener that tracks and outputs information about the maximum ratio of min_size / max_size^gamma
+    for normal boxes resulting from the gamma algorithm.
+    This class only outputs the final maximum value at the end of the gamma algorithm.
+
+    Attributes:
+        current_max (float): The current maximum ratio.
+        output_handler (OutputHandler): The handler used to output messages.
+    """
+
+    def __init__(self, output_handler: OutputHandler):
+        """
+        Initialize a NormalBoxFinalMaxRatioTracker object.
+
+        :param output_handler: The handler used to output messages.
+        """
+        self.current_max = -math.inf
+        self.output_handler = output_handler
+
+    def handle(self, event: GammaAlgorithmAfterDetailPlacedEvent) -> None:
+        """
+        Handle the event that occurs after a detail is placed.
+        Calculate the ratio for the normal box created by placing the detail. At the end of the algorithm,
+        output the maximum ratio.
+
+        :param event: The event that occurs after a detail is placed.
+        """
+        min_size = min(event.normal_box.height, event.normal_box.width)
+        max_size = max(event.normal_box.height, event.normal_box.width)
+        value = min_size / pow(max_size, event.gamma)
+        if value > self.current_max:
+            self.current_max = value
+        if event.last_placed_index == event.n0 + event.max_placed - 1:
+            message = f'n0 = {event.n0}, gamma = {event.gamma}, max_ratio = {self.current_max}'
+            self.output_handler.write(message)
 
 
 class LrpOccupancyRatioTracker(BeforeLRPCutListener):

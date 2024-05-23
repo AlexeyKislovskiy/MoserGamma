@@ -4,7 +4,7 @@ from algorithm.abstract_algorithm import Algorithm, AlgorithmExecutionException
 from detail.detail import Detail
 from statistic.event.abstract_event import Event
 from statistic.event.gamma_algorithm_events import GammaAlgorithmBeforeLRPCutEvent, GammaAlgorithmAfterLRPCutEvent, \
-    GammaAlgorithmAfterDetailPlacedEvent
+    GammaAlgorithmAfterDetailPlacedEvent, GammaAlgorithmEndEvent
 from statistic.listener.abstract_listener import StatisticListener
 
 
@@ -16,6 +16,8 @@ class GammaAlgorithm(Algorithm):
 
     Attributes:
         gamma (float): The gamma parameter.
+        n0 (int): The index of the first detail to be placed.
+        max_placed (int): The maximum number of details to place.
         statistic_listeners (list[StatisticListener]): List of statistic listeners to track during the execution.
         update_placed_details (bool): A flag indicating whether the list of placed details should be updated.
             If set to True, the list of placed details will be updated, allowing visualization of the layout
@@ -43,13 +45,14 @@ class GammaAlgorithm(Algorithm):
     LRP_PREFIX = 'LRP'
     LRP_NAME = 'lrp'
 
-    def __init__(self, gamma: float, n0: int, statistic_listeners: list[StatisticListener] = None,
+    def __init__(self, gamma: float, n0: int, max_placed: int, statistic_listeners: list[StatisticListener] = None,
                  update_placed_details: bool = True):
         """
         Initialize the GammaAlgorithm with the specified parameters.
 
         :param gamma: The gamma parameter.
         :param n0: The index of the first detail to be placed.
+        :param max_placed: The maximum number of details to place.
         :param statistic_listeners: List of statistic listeners (optional).
         :param update_placed_details: A flag indicating whether the list of placed details should be updated.
             If set to True, the list of placed details will be updated, allowing visualization of the layout
@@ -60,6 +63,8 @@ class GammaAlgorithm(Algorithm):
             statistic_listeners = []
         self.statistic_listeners = statistic_listeners
         self.gamma = gamma
+        self.n0 = n0
+        self.max_placed = max_placed
         self.update_placed_details = update_placed_details
         self.boxes = SortedSet(key=cmp_to_key(self._detail_comparator))
         self.lrp = None
@@ -130,13 +135,13 @@ class GammaAlgorithm(Algorithm):
             if total_length <= max_box_size:
                 self._choose_strip_from_box()
             else:
-                event = GammaAlgorithmBeforeLRPCutEvent(self.gamma, self.lrp, self.stripe,
+                event = GammaAlgorithmBeforeLRPCutEvent(self.gamma, self.n0, self.max_placed, self.lrp, self.stripe,
                                                         self.stripe_first_detail_index, self.is_stripe_horizontal,
                                                         self.last_placed_index, self.endpoints_placed,
                                                         self.stripe_from, detail, placed_details)
                 self._notify_statistic_listeners(event)
                 self._cut_new_strip(detail, placed_details)
-                event = GammaAlgorithmAfterLRPCutEvent(self.gamma, self.lrp, self.stripe,
+                event = GammaAlgorithmAfterLRPCutEvent(self.gamma, self.n0, self.max_placed, self.lrp, self.stripe,
                                                        self.stripe_first_detail_index, self.is_stripe_horizontal,
                                                        self.last_placed_index, self.endpoints_placed,
                                                        self.stripe_from, detail, placed_details)
@@ -146,9 +151,8 @@ class GammaAlgorithm(Algorithm):
         """
         Choose the widest available box as the new stripe for placing details. Called only when a suitable box exists.
         """
-        self.stripe_from = self.boxes[0].detail_type
-        self.stripe = self.boxes[0]
-        self.boxes.remove(self.stripe)
+        self.stripe = self.boxes.pop(0)
+        self.stripe_from = self.stripe.detail_type
         self.is_stripe_horizontal = self.stripe.width >= self.stripe.height
 
     def _cut_new_strip(self, detail: tuple[float, float], placed_details: list[Detail]) -> None:
@@ -229,12 +233,18 @@ class GammaAlgorithm(Algorithm):
             placed_details.append(endpoint)
         self.stripe = endpoint
         self.boxes.add(normal_box)
-        event = GammaAlgorithmAfterDetailPlacedEvent(self.gamma, self.lrp, self.stripe,
+        event = GammaAlgorithmAfterDetailPlacedEvent(self.gamma, self.n0, self.max_placed, self.lrp, self.stripe,
                                                      self.stripe_first_detail_index, self.is_stripe_horizontal,
                                                      self.last_placed_index, self.endpoints_placed,
                                                      self.stripe_from, detail, placed_details, placed_detail,
                                                      normal_box, endpoint)
         self._notify_statistic_listeners(event)
+        if self.last_placed_index == self.n0 + self.max_placed - 1:
+            event = GammaAlgorithmEndEvent(self.gamma, self.n0, self.max_placed, self.lrp, self.stripe,
+                                           self.stripe_first_detail_index, self.is_stripe_horizontal,
+                                           self.last_placed_index, self.endpoints_placed,
+                                           self.stripe_from, detail, placed_details)
+            self._notify_statistic_listeners(event)
 
     def _get_normal_box_type(self) -> str:
         """

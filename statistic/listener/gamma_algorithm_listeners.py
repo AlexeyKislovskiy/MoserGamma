@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from statistic.event.gamma_algorithm_events import GammaAlgorithmAfterDetailPlacedEvent, \
-    GammaAlgorithmBeforeLRPCutEvent, GammaAlgorithmAfterLRPCutEvent
+    GammaAlgorithmBeforeLRPCutEvent, GammaAlgorithmAfterLRPCutEvent, GammaAlgorithmEndEvent
 from statistic.listener.abstract_listener import StatisticListener
 
 
@@ -77,3 +77,27 @@ class AfterLRPCutListener(StatisticListener):
         :return: The type of event associated with this listener.
         """
         return GammaAlgorithmAfterLRPCutEvent.EVENT_TYPE
+
+
+class AlgorithmEndListener(StatisticListener):
+    """
+    An abstract listener class for handling events that occurs at the end of the gamma algorithm.
+    This class should be subclassed by classes that need to perform specific actions at the end of the gamma algorithm.
+    """
+
+    @abstractmethod
+    def handle(self, event: GammaAlgorithmEndEvent) -> None:
+        """
+        Handle the event that occurs at the end of the gamma algorithm.
+
+        :param event: The event that occurs at the end of the gamma algorithm.
+        """
+        pass
+
+    def get_event_type(self) -> str:
+        """
+        Get the type of event associated with this listener.
+
+        :return: The type of event associated with this listener.
+        """
+        return GammaAlgorithmEndEvent.EVENT_TYPE
