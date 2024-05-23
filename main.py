@@ -36,8 +36,8 @@ lrp_occupancy_ratio_tracker = LrpOccupancyRatioHarmonicRectangleTracker(
 # to a file information about the LRP ratio at the moments before cutting a new strip
 statistic_listeners = [print_each_n, normal_box_max_ratio_tracker, lrp_occupancy_ratio_tracker]  # Create a list
 # of all the used listeners
-algorithm = GammaAlgorithm(gamma, n0, statistic_listeners=statistic_listeners, update_placed_details=True)  # Create
-# a gamma algorithm with the prepared arguments and set the update_placed_details flag to True for visualization
+algorithm = GammaAlgorithm(gamma, n0, max_placed, statistic_listeners=statistic_listeners, update_placed_details=True)
+# Create a gamma algorithm with the prepared arguments and set the update_placed_details flag to True for visualization
 detail_placer = DetailPlacer(algorithm, detail_generator, base_detail, max_placed)  # Create a detail placer
 if not os.path.isfile('files/details.json'):  # Check if there is an existing file with details
     placed_details = detail_placer.run_algorithm()  # If not, run the algorithm
