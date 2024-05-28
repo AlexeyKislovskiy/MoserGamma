@@ -1,11 +1,10 @@
-from functools import cmp_to_key
-from sortedcontainers import SortedSet
 from algorithm.abstract_algorithm import Algorithm, AlgorithmExecutionException
 from detail.detail import Detail
 from statistic.event.abstract_event import Event
 from statistic.event.gamma_algorithm_events import GammaAlgorithmBeforeLRPCutEvent, GammaAlgorithmAfterLRPCutEvent, \
     GammaAlgorithmAfterDetailPlacedEvent, GammaAlgorithmEndEvent
 from statistic.listener.abstract_listener import StatisticListener
+from storage.abstract_box_storage import BoxStorage
 
 
 class GammaAlgorithm(Algorithm):
@@ -18,12 +17,12 @@ class GammaAlgorithm(Algorithm):
         gamma (float): The gamma parameter.
         n0 (int): The index of the first detail to be placed.
         max_placed (int): The maximum number of details to place.
+        box_storage (BoxStorage): BoxStorage object for storing available boxes for placing details.
         statistic_listeners (list[StatisticListener]): List of statistic listeners to track during the execution.
         update_placed_details (bool): A flag indicating whether the list of placed details should be updated.
             If set to True, the list of placed details will be updated, allowing visualization of the layout
             and calculations based on the state of all placed details. Setting it to False can expedite the
             calculating process by bypassing the need for continuous updates of placed details.
-        boxes (SortedSet): Set of available boxes for placing details, sorted based on their minimum side length.
         lrp (Detail): The Large Rectangular Piece (LRP).
         stripe (Detail): The current stripe, or None if there is no current stripe.
         stripe_first_detail_index (int): The index of the first detail in the current stripe.
@@ -45,14 +44,15 @@ class GammaAlgorithm(Algorithm):
     LRP_PREFIX = 'LRP'
     LRP_NAME = 'lrp'
 
-    def __init__(self, gamma: float, n0: int, max_placed: int, statistic_listeners: list[StatisticListener] = None,
-                 update_placed_details: bool = True):
+    def __init__(self, gamma: float, n0: int, max_placed: int, box_storage: BoxStorage,
+                 statistic_listeners: list[StatisticListener] = None, update_placed_details: bool = True):
         """
         Initialize the GammaAlgorithm with the specified parameters.
 
         :param gamma: The gamma parameter.
         :param n0: The index of the first detail to be placed.
         :param max_placed: The maximum number of details to place.
+        :param box_storage: BoxStorage object for storing available boxes for placing details.
         :param statistic_listeners: List of statistic listeners (optional).
         :param update_placed_details: A flag indicating whether the list of placed details should be updated.
             If set to True, the list of placed details will be updated, allowing visualization of the layout
@@ -65,8 +65,8 @@ class GammaAlgorithm(Algorithm):
         self.gamma = gamma
         self.n0 = n0
         self.max_placed = max_placed
+        self.box_storage = box_storage
         self.update_placed_details = update_placed_details
-        self.boxes = SortedSet(key=cmp_to_key(self._detail_comparator))
         self.lrp = None
         self.stripe = None
         self.stripe_first_detail_index = n0 - 1
@@ -113,7 +113,7 @@ class GammaAlgorithm(Algorithm):
             total_length = detail[0] + required_gap
             if (self.is_stripe_horizontal and total_length > self.stripe.width) or \
                     (not self.is_stripe_horizontal and total_length > self.stripe.height):
-                self.boxes.add(self.stripe)
+                self.box_storage.add_box(self.stripe)
                 self.stripe = None
                 self.endpoints_placed += 1
 
@@ -129,7 +129,8 @@ class GammaAlgorithm(Algorithm):
         """
         if self.stripe is None:
             self.stripe_first_detail_index = self.last_placed_index + 1
-            max_box_size = min(self.boxes[0].width, self.boxes[0].height) if len(self.boxes) > 0 else -1
+            max_box = self.box_storage.get_max_box()
+            max_box_size = min(max_box.width, max_box.height) if max_box else -1
             required_gap = pow(1 / self.stripe_first_detail_index, self.gamma)
             total_length = detail[1] + required_gap
             if total_length <= max_box_size:
@@ -151,7 +152,7 @@ class GammaAlgorithm(Algorithm):
         """
         Choose the widest available box as the new stripe for placing details. Called only when a suitable box exists.
         """
-        self.stripe = self.boxes.pop(0)
+        self.stripe = self.box_storage.pop_max_box()
         self.stripe_from = self.stripe.detail_type
         self.is_stripe_horizontal = self.stripe.width >= self.stripe.height
 
@@ -232,7 +233,7 @@ class GammaAlgorithm(Algorithm):
             placed_details.append(normal_box)
             placed_details.append(endpoint)
         self.stripe = endpoint
-        self.boxes.add(normal_box)
+        self.box_storage.add_box(normal_box)
         event = GammaAlgorithmAfterDetailPlacedEvent(self.gamma, self.n0, self.max_placed, self.lrp, self.stripe,
                                                      self.stripe_first_detail_index, self.is_stripe_horizontal,
                                                      self.last_placed_index, self.endpoints_placed,
@@ -280,14 +281,3 @@ class GammaAlgorithm(Algorithm):
         for statistic in self.statistic_listeners:
             if statistic.get_event_type() == event.get_event_type():
                 statistic.handle(event)
-
-    @staticmethod
-    def _detail_comparator(detail1: Detail, detail2: Detail) -> float:
-        """
-        Compares two details based on their minimum side length.
-
-        :param detail1: The first detail for comparison.
-        :param detail2: The second detail for comparison.
-        :return: Positive if detail1 is larger, negative if detail2 is larger, 0 if equal.
-        """
-        return min(detail2.width, detail2.height) - min(detail1.width, detail1.height)

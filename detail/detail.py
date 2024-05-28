@@ -45,3 +45,25 @@ class Detail:
         :return: The height of the detail.
         """
         return self.top_right[1] - self.bottom_left[1]
+
+    def __eq__(self, other) -> bool:
+        """
+        Check if this Detail object is equal to another Detail object.
+
+        :param other: Another Detail object to compare with.
+        :return: True if the two Detail objects are equal, False otherwise.
+        """
+        if isinstance(other, Detail):
+            return (self.bottom_left == other.bottom_left and
+                    self.top_right == other.top_right and
+                    self.name == other.name and
+                    self.detail_type == other.detail_type)
+        return False
+
+    def __hash__(self) -> int:
+        """
+        Calculate the hash value for the Detail object.
+
+        :return: The hash value.
+        """
+        return hash((self.bottom_left, self.top_right, self.name, self.detail_type))

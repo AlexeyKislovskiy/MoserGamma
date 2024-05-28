@@ -10,6 +10,14 @@ class Plotter:
     """
     A class for visualizing detail on a base detail using matplotlib.
     It allows users to add detail, customize plot settings, and interact with the plot.
+
+    Attributes:
+        base_detail (Detail): The base detail on which other details will be placed.
+        details (list[Detail]): A list of Detail objects to be placed on the base detail.
+        plot_settings (PlotSettings): Plot settings controlling the appearance of the plot.
+        fig (matplotlib.figure.Figure): The figure object representing the entire plot.
+        ax (matplotlib.axes.Axes): The axes object representing the plot area.
+        hovered_detail (Detail): The detail currently being hovered by the mouse, if any.
     """
 
     def __init__(self, base_detail: Detail, details: list[Detail], plot_settings: PlotSettings = None):

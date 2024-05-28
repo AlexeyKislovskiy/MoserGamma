@@ -6,8 +6,9 @@ from detail.detail_functions import count_detail_types, serialize_details_to_jso
 from detail.detail_generator import HarmonicRectangleDetailGenerator
 from detail.detail import Detail
 from statistic.listener.default_gamma_algorithm_listeners import PrintEachN, NormalBoxMaxRatioTracker, \
-    LrpOccupancyRatioTracker, LrpOccupancyRatioHarmonicRectangleTracker
-from statistic.output import OutputHandler
+    LrpOccupancyRatioTracker, LrpOccupancyRatioHarmonicRectangleTracker, ExecutionTimeTracker, PrintInfoAtEnd
+from statistic.output import OutputHandler, ConsoleOutputHandler, FileOutputHandler
+from storage.hybrid_partitioned_box_storage import HybridPartitionedBoxStorage
 from visualization.plotter import Plotter
 from core.detail_placer import DetailPlacer
 from visualization.settings import PlotSettings
@@ -26,18 +27,28 @@ base_top_right = (base_bottom_left[0] + base_width, base_bottom_left[1] + base_h
 # of the sheet
 base_detail = Detail(base_bottom_left, base_top_right, 'LRP', 'lrp')  # Create a sheet that initially is entirely
 # an LRP
-print_each_n = PrintEachN(100, OutputHandler(OutputHandler.CONSOLE))  # Create a listener that outputs information
+print_each_n = PrintEachN(100, ConsoleOutputHandler())  # Create a listener that outputs information
 # to the console about all details with an index multiple of 100
 normal_box_max_ratio_tracker = NormalBoxMaxRatioTracker(
-    OutputHandler(OutputHandler.FILE_OVERWRITE, 'files/max_normal_box.txt'))  # Create a listener that writes to a file
-# information about the maximums of the min_size / max_size^gamma ratio
+    FileOutputHandler('files/max_normal_box.txt', FileOutputHandler.OVERWRITE))  # Create a listener that writes
+# to a file information about the maximums of the min_size / max_size^gamma ratio
 lrp_occupancy_ratio_tracker = LrpOccupancyRatioHarmonicRectangleTracker(
-    OutputHandler(OutputHandler.FILE_OVERWRITE, 'files/lrp_occupancy_ratio.txt'))  # Create a listener that writes
+    FileOutputHandler('files/lrp_occupancy_ratio.txt', FileOutputHandler.OVERWRITE))  # Create a listener that writes
 # to a file information about the LRP ratio at the moments before cutting a new strip
-statistic_listeners = [print_each_n, normal_box_max_ratio_tracker, lrp_occupancy_ratio_tracker]  # Create a list
-# of all the used listeners
-algorithm = GammaAlgorithm(gamma, n0, max_placed, statistic_listeners=statistic_listeners, update_placed_details=True)
-# Create a gamma algorithm with the prepared arguments and set the update_placed_details flag to True for visualization
+execution_time_tracker = ExecutionTimeTracker(100,
+                                              FileOutputHandler('files/execution_time.txt',
+                                                                FileOutputHandler.APPEND))  # Create a listener that writes
+# to a file execution time of algorithm
+print_info_at_end = PrintInfoAtEnd(ConsoleOutputHandler())  # Create a listener that outputs information when
+# algorithm ends
+statistic_listeners = [print_each_n, normal_box_max_ratio_tracker, lrp_occupancy_ratio_tracker,
+                       execution_time_tracker, print_info_at_end]  # Create a list of all the used listeners
+box_storage = HybridPartitionedBoxStorage('postgresql://user:password@localhost/MoserGamma', n0, gamma,
+                                          max_placed, boxes_in_partition=1000, table_name='boxes', cache_size=1000)
+# Create hybrid partitioned box storage to store boxes
+algorithm = GammaAlgorithm(gamma, n0, max_placed, box_storage, statistic_listeners=statistic_listeners,
+                           update_placed_details=True)  # Create a gamma algorithm with the prepared arguments and
+# set the update_placed_details flag to True for visualization
 detail_placer = DetailPlacer(algorithm, detail_generator, base_detail, max_placed)  # Create a detail placer
 if not os.path.isfile('files/details.json'):  # Check if there is an existing file with details
     placed_details = detail_placer.run_algorithm()  # If not, run the algorithm

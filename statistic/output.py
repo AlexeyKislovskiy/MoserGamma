@@ -1,41 +1,72 @@
-class OutputHandler:
+from abc import ABC, abstractmethod
+
+
+class OutputHandler(ABC):
     """
-    A class to handle output operations, either to the console or to a file.
+    An abstract class to handle output operations.
+    """
+
+    @abstractmethod
+    def write(self, message: str):
+        """
+        Writes the given message.
+
+        :param message: The message to be written.
+        """
+        pass
+
+
+class ConsoleOutputHandler(OutputHandler):
+    """
+    A class to handle output operations to the console.
+    """
+
+    def write(self, message: str):
+        """
+        Writes the given message to the console.
+
+        :param message: The message to be written.
+        """
+        print(message)
+
+
+class FileOutputHandler(OutputHandler):
+    """
+    A class to handle output operations to a file.
     Supports appending to or overwriting a file.
 
     Attributes:
-        mode (str): The mode of output ('console', 'file_append', 'file_overwrite').
-        file_path (str): The path to the file for output operations. Used only if mode is
-            'file_append' or 'file_overwrite'.
-        first_write (bool): A flag to track the first write operation when in 'file_overwrite' mode.
+        file_path (str): The path to the file for output operations.
+        mode (str): The mode of file output ('append', 'overwrite').
+        first_write (bool): A flag to track the first write operation when in 'overwrite' mode.
     """
 
-    CONSOLE = 'console'
-    FILE_APPEND = 'file_append'
-    FILE_OVERWRITE = 'file_overwrite'
+    APPEND = 'append'
+    OVERWRITE = 'overwrite'
 
-    def __init__(self, mode: str = CONSOLE, file_path: str = None):
+    def __init__(self, file_path: str, mode: str = APPEND):
         """
-        Initializes the OutputHandler.
+        Initializes the FileOutputHandler.
 
-        :param mode: The mode of output. Can be 'console', 'file_append', or 'file_overwrite'. Default is 'console'.
-        :param file_path: The path to the file for file output modes.
+        :param file_path: The path to the file for file output.
+        :param mode: The mode of file output. Can be 'append' or 'overwrite'. Default is 'append'.
         """
-        self.mode = mode
         self.file_path = file_path
+        self.mode = mode
         self.first_write = True
 
     def write(self, message: str):
         """
-        Writes the given message according to the output mode.
+        Writes the given message to the file according to the output mode.
 
         :param message: The message to be written.
-        :raises ValueError: If the mode is invalid or if the file_path is not provided for file modes.
+        :raises ValueError: If the mode is invalid.
         """
-        if self.mode == self.CONSOLE:
-            print(message)
-        elif self.mode in [self.FILE_APPEND, self.FILE_OVERWRITE] and self.file_path:
-            if self.mode == self.FILE_OVERWRITE and self.first_write:
+        if self.mode == self.APPEND:
+            with open(self.file_path, 'a') as f:
+                f.write(f'{message}\n')
+        elif self.mode == self.OVERWRITE:
+            if self.first_write:
                 with open(self.file_path, 'w') as f:
                     f.write(f'{message}\n')
                 self.first_write = False
@@ -43,4 +74,4 @@ class OutputHandler:
                 with open(self.file_path, 'a') as f:
                     f.write(f'{message}\n')
         else:
-            raise ValueError(f"Invalid mode or file_path not provided for mode {self.mode}")
+            raise ValueError(f"Invalid mode: {self.mode}")

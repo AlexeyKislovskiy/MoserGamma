@@ -72,8 +72,8 @@ def deserialize_details_from_json(filename: str) -> list[Detail]:
         serialized_details = json.load(file)
     details = []
     for serialized_detail in serialized_details:
-        bottom_left = serialized_detail["bottom_left"]
-        top_right = serialized_detail["top_right"]
+        bottom_left = tuple(serialized_detail["bottom_left"])
+        top_right = tuple(serialized_detail["top_right"])
         name = serialized_detail["name"]
         detail_type = serialized_detail["detail_type"]
         detail = Detail(bottom_left, top_right, name, detail_type)

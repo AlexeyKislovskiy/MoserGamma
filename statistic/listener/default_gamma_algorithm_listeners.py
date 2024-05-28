@@ -1,9 +1,11 @@
 import math
+import time
 
 from algorithm.gamma_algorithm import GammaAlgorithm
 from statistic.event.gamma_algorithm_events import GammaAlgorithmAfterDetailPlacedEvent, \
     GammaAlgorithmBeforeLRPCutEvent, GammaAlgorithmEndEvent
-from statistic.listener.gamma_algorithm_listeners import AfterDetailPlacedListener, BeforeLRPCutListener, AlgorithmEndListener
+from statistic.listener.gamma_algorithm_listeners import AfterDetailPlacedListener, BeforeLRPCutListener, \
+    AlgorithmEndListener
 from statistic.output import OutputHandler
 
 
@@ -66,6 +68,58 @@ class PrintInfoAtEnd(AlgorithmEndListener):
         """
         message = f'Gamma algorithm with n0 = {event.n0} and gamma = {event.gamma} ended'
         self.output_handler.write(message)
+
+
+class ExecutionTimeTracker(AfterDetailPlacedListener):
+    """
+    A listener that tracks and outputs the execution time of the gamma algorithm.
+    This class handles events that occur after a detail is placed during the gamma algorithm,
+    measuring both the total execution time and the execution time for each block of n details.
+
+    Attributes:
+        n (int): The number of details in each block for which to measure the execution time.
+        start_time (float): The timestamp when the first detail is placed, indicating the start of the execution.
+        current_block_num (int): The current block number being measured.
+        current_block_start_time (float): The timestamp when the current block started.
+        output_handler (OutputHandler): The handler used to output messages.
+    """
+
+    def __init__(self, n: int, output_handler: OutputHandler):
+        """
+        Initialize an ExecutionTimeTracker object.
+
+        :param n: The number of details in each block for which to measure the execution time.
+        :param output_handler: The handler used to output messages.
+        """
+        self.n = n
+        self.start_time = None
+        self.current_block_num = 1
+        self.current_block_start_time = None
+        self.output_handler = output_handler
+
+    def handle(self, event: GammaAlgorithmAfterDetailPlacedEvent) -> None:
+        """
+        Handle the event that occurs after a detail is placed.
+        Measures and outputs the execution time for each block of n details and the total execution time.
+
+        :param event: The event that occurs after a detail is placed.
+        """
+        if not self.start_time:
+            self.start_time = time.time()
+        if not self.current_block_start_time:
+            self.current_block_start_time = time.time()
+        if event.last_placed_index % self.n == 0:
+            end_time = time.time()
+            execution_time = end_time - self.current_block_start_time
+            message = f'Execution time of block {self.current_block_num} of {self.n} details: {execution_time} seconds'
+            self.output_handler.write(message)
+            self.current_block_num += 1
+            self.current_block_start_time = None
+        if event.last_placed_index == event.n0 + event.max_placed - 1:
+            end_time = time.time()
+            execution_time = end_time - self.start_time
+            message = f'Full execution time: {execution_time} seconds'
+            self.output_handler.write(message)
 
 
 class NormalBoxMaxRatioTracker(AfterDetailPlacedListener):
